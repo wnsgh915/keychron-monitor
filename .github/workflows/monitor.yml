@@ -1,0 +1,44 @@
+name: Keychron Stock Monitor
+
+on:
+  repository_dispatch:
+    types: [monitor]
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: '테스트 모드 (강제 재입고 알림)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Restore previous state
+        if: inputs.test_mode != true
+        uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: keychron-state-${{ github.run_id }}
+          restore-keys: keychron-state-
+      - name: Run monitor
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_USER_ID: ${{ secrets.DISCORD_USER_ID }}
+          TEST_MODE: ${{ inputs.test_mode }}
+        run: python monitor.py
+      - name: Save state
+        if: inputs.test_mode != true && always()
+        uses: actions/cache/save@v4
+        with:
+          path: state.json
+          key: keychron-state-${{ github.run_id }}
